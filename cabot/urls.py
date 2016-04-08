@@ -148,6 +148,8 @@ urlpatterns = patterns('',
 
      url(r'^api/', include(rest_urls.router.urls)),
      )
+from django.conf.urls.static import static
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 def append_plugin_urls():
     """
