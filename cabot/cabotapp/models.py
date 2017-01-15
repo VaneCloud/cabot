@@ -37,6 +37,11 @@ CHECK_TYPES = (
     ('==', 'Equal to'),
 )
 
+LAZY_ALERT = settings.LAZY_ALERT
+if LAZY_ALERT:
+    LAZY_ALERT_MULTI = settings.LAZY_ALERT_MULTI
+else:
+    LAZY_ALERT_MULTI = 1
 
 def serialize_recent_results(recent_results):
     if not recent_results:
@@ -115,7 +120,7 @@ class CheckGroupMixin(models.Model):
         null=True,
         blank=True,
     )
-
+    
     alerts = models.ManyToManyField(
         'AlertPlugin',
         blank=True,
@@ -167,29 +172,38 @@ class CheckGroupMixin(models.Model):
         return False
 
     def alert(self):
+	if not LAZY_ALERT:
+	    self.count = 1
+	    self.save()
         if not self.alerts_enabled:
             return
         if self.overall_status != self.PASSING_STATUS:
             # Don't alert every time
             if self.overall_status == self.WARNING_STATUS:
-                if self.last_alert_sent and (
-                    timezone.now() - timedelta(minutes=settings.NOTIFICATION_INTERVAL)) < self.last_alert_sent:
+                now = timezone.now()
+		if self.last_alert_sent and (now - timedelta(minutes=settings.NOTIFICATION_INTERVAL * self.count * LAZY_ALERT_MULTI)) < self.last_alert_sent:
                     return
             elif self.overall_status in (self.CRITICAL_STATUS, self.ERROR_STATUS):
-                if self.last_alert_sent and (
-                    timezone.now() - timedelta(minutes=settings.ALERT_INTERVAL)) < self.last_alert_sent:
+                now = timezone.now()
+		if self.last_alert_sent and (now - timedelta(minutes=settings.ALERT_INTERVAL * self.count * LAZY_ALERT_MULTI)) < self.last_alert_sent:
                     return
             self.last_alert_sent = timezone.now()
         else:
             # We don't count "back to normal" as an alert
             self.last_alert_sent = None
-        self.save()
+            self.count = 1
         if self.unexpired_acknowledgement():
             send_alert_update(self, duty_officers=get_duty_officers())
+	    if LAZY_ALERT:
+                self.count += 1
         else:
             self.snapshot.did_send_alert = True
             self.snapshot.save()
             send_alert(self, duty_officers=get_duty_officers())
+	    if self.overall_status != self.PASSING_STATUS:
+	        if LAZY_ALERT:
+                    self.count += 1
+        self.save()
 
     def unexpired_acknowledgements(self):
         acknowledgements = self.alertacknowledgement_set.all().filter(
@@ -289,6 +303,8 @@ class Service(CheckGroupMixin):
         blank=True,
         help_text="URL of service."
     )
+
+    count = models.IntegerField(default=1)
 
     class Meta:
         ordering = ['name']

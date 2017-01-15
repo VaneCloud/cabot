@@ -254,3 +254,8 @@ if AUTH_LDAP:
     AUTHENTICATION_BACKENDS += tuple(['django_auth_ldap.backend.LDAPBackend'])
 
 EXPOSE_USER_API = os.environ.get('EXPOSE_USER_API', False)
+
+
+# vanecloud append
+LAZY_ALERT = int(os.environ.get('LAZY_ALERT', 0))
+LAZY_ALERT_MULTI = int(os.environ.get('LAZY_ALERT_MULTI', 1))
