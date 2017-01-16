@@ -33,6 +33,7 @@ class Migration(SchemaMigration):
             ('hackpad_id', self.gf('django.db.models.fields.TextField')
              (null=True, blank=True)),
 	    ('count', self.gf('django.db.models.IntegerField')(default=1)),
+	    ('old_failed_checker_count', self.gf('django.db.models.IntegerField')(default=0)),
         ))
         db.send_create_signal('cabotapp', ['Service'])
 

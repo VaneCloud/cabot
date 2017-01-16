@@ -172,9 +172,6 @@ class CheckGroupMixin(models.Model):
         return False
 
     def alert(self):
-	if not LAZY_ALERT:
-	    self.count = 1
-	    self.save()
         if not self.alerts_enabled:
             return
         if self.overall_status != self.PASSING_STATUS:
@@ -279,6 +276,9 @@ class Service(CheckGroupMixin):
         # Only active checks feed into our calculation
         status_checks_failed_count = self.all_failing_checks().count()
         self.overall_status = self.most_severe(self.all_failing_checks())
+	if self.old_failed_checker_count != status_checks_failed_count:
+	    self.count = 1
+	self.old_failed_checker_count = status_checks_failed_count
         self.snapshot = ServiceStatusSnapshot(
             service=self,
             num_checks_active=self.active_status_checks().count(),
@@ -288,6 +288,8 @@ class Service(CheckGroupMixin):
             overall_status=self.overall_status,
             time=timezone.now(),
         )
+        if not LAZY_ALERT:
+	    self.count = 1
         self.snapshot.save()
         self.save()
         if not (self.overall_status == Service.PASSING_STATUS and self.old_overall_status == Service.PASSING_STATUS):
@@ -305,6 +307,7 @@ class Service(CheckGroupMixin):
     )
 
     count = models.IntegerField(default=1)
+    old_failed_checker_count = models.IntegerField(default=0)
 
     class Meta:
         ordering = ['name']
