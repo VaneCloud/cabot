@@ -14,6 +14,7 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.utils import timezone
 from polymorphic import PolymorphicModel
+from celery.contrib import rdb
 
 from .alert import (
     send_alert,
@@ -657,6 +658,36 @@ class GraphiteStatusCheck(StatusCheck):
         else:
             target, value = failures[0]
             return "%s %s %0.1f" % (value, self.check_type, float(self.value))
+
+    @property
+    def first_failed(self):
+	last_success = StatusCheckResult.objects.filter(check=self, succeeded=True).first().time
+	result = StatusCheckResult.objects.filter(check=self, succeeded=False, time__gt=last_success).last().time
+	return result
+    
+    @property
+    def total_minutes(self):
+	return int((timezone.now() - self.first_failed).total_seconds() / 60)
+    
+    @property
+    def format_faild_date(self):
+	date = timezone.localtime(self.first_failed)
+	return date.strftime('%d/%b/%Y - %H:%M:%S')
+    
+    @property
+    def metric_name(self):
+	return self.metric.split('.').pop()
+
+    @property
+    def current(self):
+	return self._cur_threshold()[0]
+    
+    @property
+    def threshold(self):
+	return self._cur_threshold()[2]
+
+    def _cur_threshold(self):
+	return StatusCheckResult.objects.filter(check=self).first().error.split()
 
     def _run(self):
         if not hasattr(self, 'utcnow'):
