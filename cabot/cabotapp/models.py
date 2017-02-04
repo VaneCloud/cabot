@@ -673,10 +673,6 @@ class GraphiteStatusCheck(StatusCheck):
     def format_faild_date(self):
 	date = timezone.localtime(self.first_failed)
 	return date.strftime('%d/%b/%Y - %H:%M:%S')
-    
-    @property
-    def metric_name(self):
-	return self.metric.split('.').pop()
 
     @property
     def current(self):
